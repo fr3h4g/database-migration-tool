@@ -1,0 +1,6 @@
+database:
+  host: "10.118.20.48"
+  port: 3306
+  username: "root"
+  password: "root"
+  database: "dbmt-migration-test"

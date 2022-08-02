@@ -1,0 +1,11 @@
+click
+invoke
+rich
+PyInquirer
+pyyaml 
+twine
+keyring
+artifacts-keyring
+wheel
+python-dotenv
+pyfiglet
