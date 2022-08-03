@@ -8,6 +8,8 @@ import click
 import rich
 from rich.console import Console
 from rich.table import Table, box
+from rich.progress import track, Progress, BarColumn, TextColumn
+import sqlparse
 
 from dbmt.mysql import (
     connect_to_mysql,
@@ -97,8 +99,9 @@ def add_schema_histort_table(cnx):
     mysql_execute(cnx, sql)
 
 
-def get_version(filename):
+def get_version(filename: str):
     version = filename.split("__")[0][1:]
+    version = version.replace("_", ".")
     return version
 
 
@@ -109,6 +112,13 @@ def get_description(filename):
     return description
 
 
+def progress_bar_settings():
+    text_column = TextColumn("{task.description}")
+    bar_column = BarColumn(bar_width=50)
+    progress = Progress(bar_column, text_column)
+    return progress
+
+
 def migrate_database():
     cnx = connect_to_db()
     add_schema_histort_table(cnx)
@@ -117,7 +127,7 @@ def migrate_database():
     for file in files:
         version = get_version(file)
         description = get_description(file)
-        print(version, description, file)
+        # print(version, description, file)
         sql = f"SELECT * FROM dbmt_schema_history WHERE script='{file}' ORDER BY id DESC LIMIT 1;"
         cursor = mysql_execute(cnx, sql)
         schema_history_data = mysql_cursor_fetchone(cursor)
@@ -130,7 +140,13 @@ def migrate_database():
         if not schema_history_data:
             with open(os.path.join("sql", file), "r") as stream:
                 sql = stream.read()
-                mysql_execute(cnx, sql)
+                sql_queries = sqlparse.split(sql)
+                progress = progress_bar_settings()
+                with progress:
+                    for row in progress.track(
+                        sql_queries, description=f"Migrating {file}"
+                    ):
+                        mysql_execute(cnx, row)
                 sha256 = hashlib.sha256(sql.encode()).hexdigest()
                 sql = (
                     "INSERT INTO dbmt_schema_history (version, description, script, success, checksum) "
@@ -149,8 +165,10 @@ def clean_database():
     )
     cursor = mysql_execute(cnx, sql)
     data = mysql_cursor_fetchall(cursor)
-    for row in data:
-        mysql_execute(cnx, row["query"])
+    progress = progress_bar_settings()
+    with progress:
+        for row in progress.track(data, description="Cleaning database"):
+            mysql_execute(cnx, row["query"])
 
 
 def get_files():
@@ -184,11 +202,10 @@ def database_info():
         version = row["version"]
         description = row["description"]
         version_info = get_version_info(version, schema_history_data)
-        category = "Versioned"
+        category = "Repeatable" if row["filename"][0] == "R" else "Versioned"
         if version_info:
             installed_on = str(version_info["installed_on"])
             state = "Success" if version_info["success"] else "Error"
-
             if (
                 hashlib.sha256(
                     open(os.path.join("sql", row["filename"]), "rb").read()
@@ -196,7 +213,6 @@ def database_info():
                 != version_info["checksum"]
             ):
                 state = "Changed/Error"
-
         else:
             installed_on = ""
             state = "Pending"

@@ -11,7 +11,7 @@ required = [
     "pyyaml",
     "python-dotenv",
     "pyfiglet",
-    "mysql-connector-python",
+    "mysql-connector-python" "sqlparse",
 ]
 
 setuptools.setup(
