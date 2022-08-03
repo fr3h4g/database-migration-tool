@@ -8,6 +8,7 @@ import click
 import rich
 from rich.console import Console
 from rich.table import Table, box
+from rich import print as rprint
 from rich.progress import track, Progress, BarColumn, TextColumn
 import sqlparse
 
@@ -22,6 +23,7 @@ from dbmt.mysql import (
 VERBOSE = False
 CHECK_VARIABLES = False
 CONFIG = {}
+DRY_RUN = False
 
 
 def print_error(err):
@@ -97,6 +99,7 @@ def add_schema_histort_table(cnx):
         ") ENGINE = InnoDB;"
     )
     mysql_execute(cnx, sql)
+    cnx.commit()
 
 
 def get_version(filename: str):
@@ -119,6 +122,13 @@ def progress_bar_settings():
     return progress
 
 
+def generate_line(len: int, chr: str = "-") -> str:
+    string = ""
+    for _ in range(len):
+        string += chr
+    return string
+
+
 def migrate_database():
     cnx = connect_to_db()
     add_schema_histort_table(cnx)
@@ -139,21 +149,32 @@ def migrate_database():
             exit(1)
         if not schema_history_data:
             with open(os.path.join("sql", file), "r") as stream:
+                if DRY_RUN:
+                    rprint(
+                        f"\n/*\n{generate_line(len(file))}\n{file}\n{generate_line(len(file))}\n*/"
+                    )
                 sql = stream.read()
                 sql_queries = sqlparse.split(sql)
                 progress = progress_bar_settings()
-                with progress:
-                    for row in progress.track(
-                        sql_queries, description=f"Migrating {file}"
-                    ):
-                        mysql_execute(cnx, row)
+                if DRY_RUN:
+                    for index, row in enumerate(sql_queries):
+                        if DRY_RUN:
+                            rprint(f"\n-- SQL Query {index+1} - {file} --")
+                            rprint(row, end="\n")
+                else:
+                    with progress:
+                        for index, row in enumerate(
+                            progress.track(sql_queries, description=f"Migrating {file}")
+                        ):
+                            mysql_execute(cnx, row)
                 sha256 = hashlib.sha256(sql.encode()).hexdigest()
                 sql = (
                     "INSERT INTO dbmt_schema_history (version, description, script, success, checksum) "
                     f"VALUES ('{version}','{description}','{file}','1','{sha256}')"
                 )
-                mysql_execute(cnx, sql)
-                cnx.commit()
+                if not DRY_RUN:
+                    mysql_execute(cnx, sql)
+                    cnx.commit()
 
 
 def clean_database():
@@ -247,10 +268,20 @@ def database_info():
     default="dbmt.yml",
     help="Config file for dbmt, default dbmt.yml",
 )
-def start(config_file):
+@click.option(
+    "--dry-run/--no-dry-run",
+    default=False,
+    help="Dry run, wont execute any sql writes.",
+)
+def start(config_file, dry_run):
     """db-migration-tool
 
     Small utilitiy for sql migration from a source repo"""
+
+    global DRY_RUN
+
+    DRY_RUN = dry_run
+
     load_config_file(config_file)
 
 
