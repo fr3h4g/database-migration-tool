@@ -1,6 +1,11 @@
-database-migration-tool will help to track, version, and deploy database schema changes to a mysql database.
+database-migration-tool will help to track, version, and deploy database schema changes to a database.
 
 # database-migration-tool
+
+## database support
+
+- MySQL
+- SQLite
 
 ## functions
 
@@ -32,6 +37,7 @@ example.yaml
 
 ```yaml
 database:
+  database_plugin: mysql
   host: localhost
   port: 3306
   username: ${env:MYSQL_USER}

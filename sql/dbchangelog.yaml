@@ -1,0 +1,18 @@
+database:
+  database_plugin: "mysql"
+  host: "10.118.20.38"
+  port: 3306
+  username: "root"
+  password: "root"
+  database: "test"
+
+databaseMigrations:
+  - changeSet: 1
+    author: "Mike <mike@email.com>"
+    sqlFile: "V002__create users table.sql"
+  - changeSet: 2
+    author: "Matt <matt@email.com>"
+    sqlFile: "V003__add_email_column.sql"
+  - changeSet: 3
+    author: "Matt <matt@email.com>"
+    sqlFile: "V004__change_last_name_length.sql"

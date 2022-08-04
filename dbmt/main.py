@@ -1,7 +1,5 @@
 import os
-import re
 from unicodedata import category
-import yaml
 import hashlib
 
 import click
@@ -12,67 +10,16 @@ from rich import print as rprint
 from rich.progress import track, Progress, BarColumn, TextColumn
 import sqlparse
 
+from dbmt.config import load_config_file
 from dbmt.mysql import (
     connect_to_mysql,
     mysql_execute,
     mysql_cursor_fetchone,
     mysql_cursor_fetchall,
 )
-
-
-VERBOSE = False
-CHECK_VARIABLES = False
-CONFIG = {}
-DRY_RUN = False
-
-
-def print_error(err):
-    rich.print(f"[red]Error: {err}")
-
-
-def replace_with_os_env(row: str, error_place="config file"):
-    error = False
-    if row.lstrip()[0] != "#":
-        result = re.findall("<(\\w+)>", row)
-        for var in result:
-            osenv = os.getenv(var)
-            if not osenv:
-                if CHECK_VARIABLES:
-                    print_error(
-                        f"Environment variable [bold]'{var}'[/bold] "
-                        f"is missing/empty in {error_place}[/red]"
-                    )
-                    error = True
-            else:
-                row = row.replace(f"<{var}>", osenv)
-    return row, error
-
-
-def load_config_file(config_file):
-    global CONFIG
-
-    if VERBOSE:
-        rich.print(f"Reading config file: {config_file}...")
-
-    if not os.path.exists(config_file):
-        print_error(f"Config file {config_file} not found.")
-        exit(1)
-
-    with open(config_file, "r") as stream:
-        stream = stream.readlines()
-        data = ""
-        for row in stream:
-            row, _ = replace_with_os_env(row)
-            data = data + row + "\n"
-        try:
-            CONFIG = yaml.safe_load(data)
-            if VERBOSE:
-                rich.print(CONFIG)
-        except yaml.YAMLError as exc:
-            print(exc)
-
-    if VERBOSE:
-        rich.print("...Done!")
+from dbmt.plugin_collection import PluginCollection
+from dbmt.error import print_error
+from dbmt.config import VERBOSE, CHECK_VARIABLES, CONFIG, DRY_RUN
 
 
 def connect_to_db():
@@ -265,7 +212,7 @@ def database_info():
 @click.option(
     "--config-file",
     "-c",
-    default="dbmt.yml",
+    default="./sql/dbchangelog.yaml",
     help="Config file for dbmt, default dbmt.yml",
 )
 @click.option(
@@ -279,10 +226,12 @@ def start(config_file, dry_run):
     Small utilitiy for sql migration from a source repo"""
 
     global DRY_RUN
+    global CONFIG
 
     DRY_RUN = dry_run
 
-    load_config_file(config_file)
+    CONFIG = load_config_file(config_file)
+    print("config loaded")
 
 
 @start.command(help="Migrate database")
@@ -298,3 +247,46 @@ def clean():
 @start.command(help="Status of database migration")
 def info():
     database_info()
+
+
+def load_sql_queries(filename):
+    sql_queries = None
+    with open(os.path.join("sql", filename), "r") as stream:
+        sql = stream.read()
+        sql_queries = sqlparse.split(sql)
+    return sql_queries
+
+
+def testing():
+    print("start")
+    database = PluginCollection("mysql")
+    print("database")
+    # database.connect()
+    # database.add_schema_history_table()
+    # database.close()
+
+    # -- sort databaseMigrations by changeSet number
+    # -- connect to database
+    database.add_database_lock()
+    for change_set in CONFIG["databaseMigrations"]:
+        # print(change_set)
+        change_set_number = change_set["changeSet"]
+        filename = change_set["sqlFile"]
+        print(change_set_number, filename)
+        # -- add row in database-change-log table
+        # -- load sql text
+        # -- replace ${} and ${env:} parameters in sql
+        # -- split sql text for individual sql querys
+        sql_queries = load_sql_queries(filename)
+        for index, sql_query in enumerate(sql_queries):
+            print(sql_query)
+            database.update_schema_history_table()
+        # -- run on each sql query:
+        #    -- execute sql
+        #    -- update row in database-change-log table
+    # -- close database connection
+
+
+@start.command(help="test")
+def test():
+    testing()
