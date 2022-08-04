@@ -1,4 +1,7 @@
+from datetime import datetime
 import os
+from dataclasses import dataclass
+from pydoc import describe
 from unicodedata import category
 import hashlib
 
@@ -11,13 +14,14 @@ from rich.progress import track, Progress, BarColumn, TextColumn
 import sqlparse
 
 from dbmt.config import load_config_file
+from dbmt.dataclasses import MigrationData
 from dbmt.mysql import (
     connect_to_mysql,
     mysql_execute,
     mysql_cursor_fetchone,
     mysql_cursor_fetchall,
 )
-from dbmt.plugin_collection import PluginCollection
+from dbmt.database_plugin import DatabasePlugin
 from dbmt.error import print_error
 from dbmt.config import VERBOSE, CHECK_VARIABLES, CONFIG, DRY_RUN
 
@@ -257,34 +261,78 @@ def load_sql_queries(filename):
     return sql_queries
 
 
+def get_scripts_data():
+    script_data = []
+    for change_set in CONFIG["databaseMigrations"]:
+        filename = change_set["sqlFile"]
+        with open(os.path.join("sql", filename), "r") as stream:
+            sql_text = stream.read()
+            sql_queries = sqlparse.split(sql_text)
+            checksum = hashlib.sha256(sql_text.encode()).hexdigest()
+            script_data.append(
+                MigrationData(
+                    **{
+                        "id": change_set["changeSet"],
+                        "description": "",
+                        "script": filename,
+                        "checksum": checksum,
+                        "sql_queries": sql_queries,
+                        "total_queries": len(sql_queries),
+                    }
+                )
+            )
+    return script_data
+
+
+def merge_migration_data(
+    schema_history_table_data: list[MigrationData], scripts_data: list[MigrationData]
+):
+    merge_data = {}
+    for row in scripts_data:
+        if row.id not in merge_data:
+            merge_data[row.id] = row
+    for row in schema_history_table_data:
+        if row.id not in merge_data:
+            merge_data[row.id] = row
+        else:
+            if row.checksum != merge_data[row.id].checksum:
+                print("error")
+
+    rprint(merge_data)
+
+
 def testing():
     print("start")
-    database = PluginCollection("mysql")
+    database = DatabasePlugin("mysql")
     print("database")
-    # database.connect()
-    # database.add_schema_history_table()
-    # database.close()
+    database.connect()
+    schema_history_table_data = database.get_schema_history_table_data()
+    print(schema_history_table_data)
+    scripts_data = get_scripts_data()
+    print(scripts_data)
+    migration_info_data = merge_migration_data(schema_history_table_data, scripts_data)
 
+    """
     # -- sort databaseMigrations by changeSet number
     # -- connect to database
-    database.add_database_lock()
     for change_set in CONFIG["databaseMigrations"]:
         # print(change_set)
         change_set_number = change_set["changeSet"]
         filename = change_set["sqlFile"]
         print(change_set_number, filename)
-        # -- add row in database-change-log table
-        # -- load sql text
-        # -- replace ${} and ${env:} parameters in sql
-        # -- split sql text for individual sql querys
+
+        database.add_schema_history_table_entry()
         sql_queries = load_sql_queries(filename)
         for index, sql_query in enumerate(sql_queries):
+            sql_query_number = index + 1
             print(sql_query)
-            database.update_schema_history_table()
+            database.update_schema_history_table_entry()
         # -- run on each sql query:
         #    -- execute sql
         #    -- update row in database-change-log table
     # -- close database connection
+    database.close()
+    """
 
 
 @start.command(help="test")

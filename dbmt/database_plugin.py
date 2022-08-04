@@ -31,7 +31,13 @@ class Plugin(object):
     def add_schema_history_table(self):
         raise NotImplementedError
 
-    def update_schema_history_table(self):
+    def add_schema_history_table_entry(self):
+        raise NotImplementedError
+
+    def update_schema_history_table_entry(self):
+        raise NotImplementedError
+
+    def get_schema_history_table_data(self):
         raise NotImplementedError
 
     def add_database_lock(self):
@@ -44,7 +50,7 @@ class Plugin(object):
         raise NotImplementedError
 
 
-class PluginCollection(object):
+class DatabasePlugin(object):
     """Upon creation, this class will read the plugins package for modules.
 
     that contain a class definition that is inheriting from the Plugin class
@@ -56,7 +62,8 @@ class PluginCollection(object):
         When an instance of the PluginCollection object is created.
         """
         self.plugin = Plugin()
-        self.plugin_package = plugin_package
+        self.load_plugin(plugin_package)
+        """
         self.reload_plugins()
         for plugin in self.plugins:
             if plugin.__name__ == plugin_package:
@@ -64,17 +71,7 @@ class PluginCollection(object):
             break
         else:
             raise ValueError(f"{plugin_package} not found")
-
-    def reload_plugins(self):
-        """Reset the list of all plugins.
-
-        Initiate the walk over the main provided plugin package to load all available plugins
         """
-        self.plugins = []
-        self.seen_paths = []
-        # print()
-        # print(f"Looking for plugins under package {self.plugin_package}")
-        self.walk_package("plugins")
 
     def connect(self):
         self.plugin.connect()
@@ -91,8 +88,14 @@ class PluginCollection(object):
     def add_schema_history_table(self):
         self.plugin.add_schema_history_table()
 
-    def update_schema_history_table(self):
-        self.plugin.update_schema_history_table()
+    def add_schema_history_table_entry(self):
+        self.plugin.add_schema_history_table_entry()
+
+    def update_schema_history_table_entry(self):
+        self.plugin.update_schema_history_table_entry()
+
+    def get_schema_history_table_data(self):
+        return self.plugin.get_schema_history_table_data()
 
     def add_database_lock(self):
         self.plugin.add_database_lock()
@@ -102,6 +105,36 @@ class PluginCollection(object):
 
     def clean_all_tables(self):
         raise NotImplementedError
+
+    def load_plugin(self, plugin_package):
+        imported_package = __import__("plugins", fromlist=["blah"])
+
+        for _, pluginname, ispkg in pkgutil.iter_modules(
+            imported_package.__path__, imported_package.__name__ + "."
+        ):
+            if f"plugins.{plugin_package}" == pluginname:
+                if not ispkg:
+                    plugin_module = __import__(pluginname, fromlist=["blah"])
+                    clsmembers = inspect.getmembers(plugin_module, inspect.isclass)
+                    for (_, clsmember) in clsmembers:
+                        if issubclass(clsmember, Plugin) & (clsmember is not Plugin):
+                            self.plugin = clsmember()
+                break
+        else:
+            raise ValueError(f"Plugin {plugin_package} not found.")
+
+
+'''
+    def reload_plugins(self):
+        """Reset the list of all plugins.
+
+        Initiate the walk over the main provided plugin package to load all available plugins
+        """
+        self.plugins = []
+        self.seen_paths = []
+        # print()
+        # print(f"Looking for plugins under package {self.plugin_package}")
+        self.walk_package("plugins")
 
     def walk_package(self, package):
         """Recursively walk the supplied package to retrieve all plugins."""
@@ -141,3 +174,4 @@ class PluginCollection(object):
                 # For each sub directory, apply the walk_package method recursively
                 for child_pkg in child_pkgs:
                     self.walk_package(package + "." + child_pkg)
+'''
