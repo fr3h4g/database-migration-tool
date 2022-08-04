@@ -18,7 +18,7 @@ setuptools.setup(
     name="db-migration-tool",
     version="0.1.0",
     author="Fredrik Haglund",
-    author_email="fredrik.haglund@xerox.com",
+    author_email="fr3h4g@gmail.com",
     description="A command line utility",
     long_description=long_description,
     long_description_content_type="text/markdown",
