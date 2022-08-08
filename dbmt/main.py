@@ -81,18 +81,11 @@ def generate_line(len: int, chr: str = "-") -> str:
 
 
 def clean_database():
-    cnx = connect_to_db()
-    sql = (
-        "SELECT CONCAT('DROP TABLE IF EXISTS `', table_name, '`;') query "
-        "FROM information_schema.tables "
-        f"WHERE table_schema = '{CONFIG['database']['database']}';"
-    )
-    cursor = mysql_execute(cnx, sql)
-    data = mysql_cursor_fetchall(cursor)
-    progress = progress_bar_settings()
-    with progress:
-        for row in progress.track(data, description="Cleaning database"):
-            mysql_execute(cnx, row["query"])
+    database = DatabasePlugin(CONFIG["database"]["database_plugin"])
+    database.connect()
+    database.clean_all_tables()
+    database.commit()
+    database.close()
 
 
 def get_files():
@@ -265,8 +258,6 @@ def merge_migration_data(
 def migrate_database():
     database = DatabasePlugin(CONFIG["database"]["database_plugin"])
     database.connect()
-
-    database.clean_all_tables()
 
     database.add_schema_history_table()
     schema_history_table_data = database.get_schema_history_table_data()
