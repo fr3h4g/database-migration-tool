@@ -9,10 +9,10 @@ database:
 databaseMigrations:
   - changeSet: 1
     author: "Mike <mike@email.com>"
-    sqlFile: "V002__create users table.sql"
+    sqlFile: "create_users_table.sql"
   - changeSet: 2
     author: "Matt <matt@email.com>"
-    sqlFile: "V003__add_email_column.sql"
+    sqlFile: "add_email_column.sql"
   - changeSet: 3
     author: "Matt <matt@email.com>"
-    sqlFile: "V004__change_last_name_length.sql"
+    sqlFile: "change_last_name_length.sql"
