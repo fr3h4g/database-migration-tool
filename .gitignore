@@ -4,6 +4,8 @@
 junit/
 test.xml
 PrintOrder*.*
+.DS_Store
+
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
