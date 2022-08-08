@@ -13,7 +13,6 @@ required = [
     "pyfiglet",
     "sqlparse",
     "mysql-connector-python",
-    "sqlite3",
 ]
 
 setuptools.setup(
