@@ -115,7 +115,7 @@ class SQLitePlugin(database_plugin.Plugin):
     def clean_all_tables(self):
         sql = (
             "SELECT 'DROP TABLE IF EXISTS `' || name || '`;' query "
-            "FROM sqlite_schema "
+            "FROM sqlite_master "
             "WHERE type ='table' AND name NOT LIKE 'sqlite_%';"
         )
         self.execute(sql)
