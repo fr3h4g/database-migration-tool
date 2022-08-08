@@ -1,0 +1,24 @@
+site_name: db-migration-tool
+repo_url: https://github.com/fr3h4g/db-migration-tool
+edit_uri: "https://github.com/fr3h4g/db-migration-tool/docs"
+theme: readthedocs
+# theme:
+#   name: material
+#   palette:
+#     primary: green
+markdown_extensions:
+  - mdx_truly_sane_lists
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          rendering:
+            show_root_heading: yes
+            show_submodules: no
+            separate_signature: yes
+  - search
+nav:
+  - Home: index.md
+  # - Changelog: changelog.md
+  # - Contributing: contributing.md
+  # - Reference: reference.md
