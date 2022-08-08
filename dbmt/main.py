@@ -23,7 +23,7 @@ from dbmt.mysql import (
 )
 from dbmt.database_plugin import DatabasePlugin
 from dbmt.error import print_error
-from dbmt.config import VERBOSE, CHECK_VARIABLES, CONFIG, DRY_RUN
+from dbmt.config import VERBOSE, CHECK_VARIABLES, CONFIG, DRY_RUN, DIR
 
 
 def connect_to_db():
@@ -78,54 +78,6 @@ def generate_line(len: int, chr: str = "-") -> str:
     for _ in range(len):
         string += chr
     return string
-
-
-def migrate_database():
-    cnx = connect_to_db()
-    add_schema_histort_table(cnx)
-    files = os.listdir("sql")
-    files = sorted(files)
-    for file in files:
-        version = get_version(file)
-        description = get_description(file)
-        # print(version, description, file)
-        sql = f"SELECT * FROM dbmt_schema_history WHERE script='{file}' ORDER BY id DESC LIMIT 1;"
-        cursor = mysql_execute(cnx, sql)
-        schema_history_data = mysql_cursor_fetchone(cursor)
-        if schema_history_data and (
-            hashlib.sha256(open(os.path.join("sql", file), "rb").read()).hexdigest()
-            != schema_history_data["checksum"]
-        ):
-            print_error(f"{file} has been changed since migration.")
-            exit(1)
-        if not schema_history_data:
-            with open(os.path.join("sql", file), "r") as stream:
-                if DRY_RUN:
-                    rprint(
-                        f"\n/*\n{generate_line(len(file))}\n{file}\n{generate_line(len(file))}\n*/"
-                    )
-                sql = stream.read()
-                sql_queries = sqlparse.split(sql)
-                progress = progress_bar_settings()
-                if DRY_RUN:
-                    for index, row in enumerate(sql_queries):
-                        if DRY_RUN:
-                            rprint(f"\n-- SQL Query {index+1} - {file} --")
-                            rprint(row, end="\n")
-                else:
-                    with progress:
-                        for index, row in enumerate(
-                            progress.track(sql_queries, description=f"Migrating {file}")
-                        ):
-                            mysql_execute(cnx, row)
-                sha256 = hashlib.sha256(sql.encode()).hexdigest()
-                sql = (
-                    "INSERT INTO dbmt_schema_history (version, description, script, success, checksum) "
-                    f"VALUES ('{version}','{description}','{file}','1','{sha256}')"
-                )
-                if not DRY_RUN:
-                    mysql_execute(cnx, sql)
-                    cnx.commit()
 
 
 def clean_database():
@@ -216,26 +168,33 @@ def database_info():
 @click.option(
     "--config-file",
     "-c",
-    default="./sql/dbchangelog.yaml",
-    help="Config file for dbmt, default dbmt.yml",
+    default="dbchangelog.yaml",
+    help="Config file for dbmt, default=dbmt.yml",
 )
 @click.option(
     "--dry-run/--no-dry-run",
     default=False,
     help="Dry run, wont execute any sql writes.",
 )
-def start(config_file, dry_run):
+@click.option(
+    "-d",
+    "--directory",
+    default="sql",
+    help="Directory with sql scripts, defalult=./sql",
+)
+def start(config_file, dry_run, directory):
     """db-migration-tool
 
     Small utilitiy for sql migration from a source repo"""
 
     global DRY_RUN
+    global DIR
     global CONFIG
 
+    DIR = directory
     DRY_RUN = dry_run
 
-    CONFIG = load_config_file(config_file)
-    print("config loaded")
+    CONFIG = load_config_file(os.path.join(DIR, config_file))
 
 
 @start.command(help="Migrate database")
@@ -265,7 +224,7 @@ def get_scripts_data():
     script_data = []
     for change_set in CONFIG["databaseMigrations"]:
         filename = change_set["sqlFile"]
-        with open(os.path.join("sql", filename), "r") as stream:
+        with open(os.path.join(DIR, filename), "r") as stream:
             sql_text = stream.read()
             sql_queries = sqlparse.split(sql_text)
             checksum = hashlib.sha256(sql_text.encode()).hexdigest()
@@ -297,44 +256,39 @@ def merge_migration_data(
         else:
             if row.checksum != merge_data[row.id].checksum:
                 print("error")
+            merge_data[row.id].done_queries = row.done_queries
+            merge_data[row.id].success = row.success
 
-    rprint(merge_data)
+    return merge_data
 
 
-def testing():
-    print("start")
-    database = DatabasePlugin("mysql")
-    print("database")
+def migrate_database():
+    database = DatabasePlugin(CONFIG["database"]["database_plugin"])
     database.connect()
+
+    database.clean_all_tables()
+
+    database.add_schema_history_table()
     schema_history_table_data = database.get_schema_history_table_data()
-    print(schema_history_table_data)
+
     scripts_data = get_scripts_data()
-    print(scripts_data)
     migration_info_data = merge_migration_data(schema_history_table_data, scripts_data)
 
-    """
-    # -- sort databaseMigrations by changeSet number
-    # -- connect to database
-    for change_set in CONFIG["databaseMigrations"]:
-        # print(change_set)
-        change_set_number = change_set["changeSet"]
-        filename = change_set["sqlFile"]
-        print(change_set_number, filename)
+    for key in migration_info_data:
+        data = migration_info_data[key]
 
-        database.add_schema_history_table_entry()
-        sql_queries = load_sql_queries(filename)
-        for index, sql_query in enumerate(sql_queries):
-            sql_query_number = index + 1
-            print(sql_query)
-            database.update_schema_history_table_entry()
-        # -- run on each sql query:
-        #    -- execute sql
-        #    -- update row in database-change-log table
-    # -- close database connection
+        database.add_schema_history_table_entry(data)
+
+        if data.done_queries < data.total_queries:
+            for index in range(data.done_queries, data.total_queries):
+                sql = data.sql_queries[index]
+                database.execute(sql)
+                database.update_schema_history_table_entry(data, index)
+
+    database.commit()
     database.close()
-    """
 
 
 @start.command(help="test")
 def test():
-    testing()
+    migrate_database()

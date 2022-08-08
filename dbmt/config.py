@@ -9,6 +9,7 @@ VERBOSE = False
 CHECK_VARIABLES = False
 CONFIG = {}
 DRY_RUN = False
+DIR = "./sql"
 
 
 def replace_with_os_env(row: str, error_place="config file"):

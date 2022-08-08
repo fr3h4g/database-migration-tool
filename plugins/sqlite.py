@@ -1,44 +1,26 @@
-from typing import List, Dict, Any
-import mysql.connector
-from mysql.connector.cursor import MySQLCursor
-from mysql.connector import MySQLConnection
+import sqlite3
+from typing import Any, Dict, List
 
 from dbmt import database_plugin
-
 from dbmt.config import CONFIG
 from dbmt.dataclasses import MigrationData
 
 
-class MySQLPlugin(database_plugin.Plugin):
+class SQLitePlugin(database_plugin.Plugin):
     def __init__(self):
-        self.__name__ = "mysql"
+        self.__name__ = "sqlite"
         self._check_config()
-        # self._connect()
-        # self._add_schema_history_table()
 
     def _check_config(self):
         if not CONFIG["database"]:
             raise ValueError("database is missing in config.")
-        if not CONFIG["database"]["host"]:
-            raise ValueError("database.host is missing in config.")
-        if not CONFIG["database"]["username"]:
-            raise ValueError("database.username is missing in config.")
-        if not CONFIG["database"]["password"]:
-            raise ValueError("database.password is missing in config.")
         if not CONFIG["database"]["database"]:
             raise ValueError("database.database is missing in config.")
 
     def connect(self):
-        print("connect")
-        cnx = mysql.connector.connect(
-            user=CONFIG["database"]["username"],
-            password=CONFIG["database"]["password"],
-            host=CONFIG["database"]["host"],
-            database=CONFIG["database"]["database"],
-        )
+        cnx = sqlite3.connect(CONFIG["database"]["database"])
         self._cnx = cnx
         self._cursor = cnx.cursor()
-        self._add_schema_history_table()
 
     def execute(self, sql):
         self._cursor.execute(sql)
@@ -75,21 +57,20 @@ class MySQLPlugin(database_plugin.Plugin):
             list_data = []
             return list_data
 
-    def _add_schema_history_table(self):
+    def add_schema_history_table(self):
         """runns before every script file"""
 
         sql = (
             "CREATE TABLE if not exists `dbmt_schema_history` ("
-            "`id` INT NOT NULL , "
+            "`id` INTEGER PRIMARY KEY, "
             "`description` VARCHAR(255) NOT NULL , "
             "`script` VARCHAR(255) NOT NULL , "
             "`checksum` VARCHAR(64) NOT NULL , "
             "`installed_on` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , "
             "`total_queries` INT NOT NULL, "
             "`done_queries` INT NOT NULL, "
-            "`success` INT NOT NULL, "
-            "PRIMARY KEY (`id`) "
-            ") ENGINE = InnoDB;"
+            "`success` INT NOT NULL "
+            ");"
         )
         self.execute(sql)
         self._cnx.commit()
@@ -102,13 +83,28 @@ class MySQLPlugin(database_plugin.Plugin):
             data.append(MigrationData(**row))
         return data
 
-    def add_schema_history_table_entry(self):
+    def add_schema_history_table_entry(self, data: MigrationData):
         """runns on every script script file"""
-        pass
+        sql = f"SELECT id FROM `dbmt_schema_history` WHERE id='{data.id}' LIMIT 1"
+        self.execute(sql)
+        tmp = self._fetchone()
+        if not tmp:
+            sql = (
+                "INSERT INTO `dbmt_schema_history` (id, script, total_queries, done_queries, "
+                "description, checksum, success) "
+                f"VALUES ('{data.id}','{data.script}','{data.total_queries}','{data.done_queries}',"
+                f"'','{data.checksum}','0')"
+            )
+            self.execute(sql)
 
-    def update_schema_history_table_entry(self):
+    def update_schema_history_table_entry(self, data: MigrationData, index_done: int):
         """runns after every sql query in script file"""
-        pass
+        success = "1" if index_done + 1 == data.total_queries else "0"
+        sql = (
+            f"UPDATE `dbmt_schema_history` SET done_queries='{index_done+1}', success='{success}' "
+            f"WHERE id='{data.id}'"
+        )
+        self.execute(sql)
 
     def add_database_lock(self):
         pass
@@ -117,4 +113,13 @@ class MySQLPlugin(database_plugin.Plugin):
         pass
 
     def clean_all_tables(self):
-        pass
+        sql = (
+            "SELECT 'DROP TABLE IF EXISTS `' || name || '`;' query "
+            "FROM sqlite_schema "
+            "WHERE type ='table' AND name NOT LIKE 'sqlite_%';"
+        )
+        self.execute(sql)
+        data = self._fetchall()
+        for row in data:
+            self.execute(row["query"])
+        self.commit()

@@ -34,7 +34,7 @@ class Plugin(object):
     def add_schema_history_table_entry(self):
         raise NotImplementedError
 
-    def update_schema_history_table_entry(self):
+    def update_schema_history_table_entry(self, data, index_done):
         raise NotImplementedError
 
     def get_schema_history_table_data(self):
@@ -88,11 +88,11 @@ class DatabasePlugin(object):
     def add_schema_history_table(self):
         self.plugin.add_schema_history_table()
 
-    def add_schema_history_table_entry(self):
-        self.plugin.add_schema_history_table_entry()
+    def add_schema_history_table_entry(self, data):
+        self.plugin.add_schema_history_table_entry(data)
 
-    def update_schema_history_table_entry(self):
-        self.plugin.update_schema_history_table_entry()
+    def update_schema_history_table_entry(self, data, index_done):
+        self.plugin.update_schema_history_table_entry(data, index_done)
 
     def get_schema_history_table_data(self):
         return self.plugin.get_schema_history_table_data()
@@ -101,9 +101,6 @@ class DatabasePlugin(object):
         self.plugin.add_database_lock()
 
     def remove_database_lock(self):
-        raise NotImplementedError
-
-    def clean_all_tables(self):
         raise NotImplementedError
 
     def load_plugin(self, plugin_package):
@@ -122,6 +119,9 @@ class DatabasePlugin(object):
                 break
         else:
             raise ValueError(f"Plugin {plugin_package} not found.")
+
+    def clean_all_tables(self):
+        self.plugin.clean_all_tables()
 
 
 '''

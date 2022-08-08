@@ -1,0 +1,11 @@
+database:
+  database_plugin: "sqlite"
+  database: "test.db"
+
+databaseMigrations:
+  - changeSet: 1
+    author: "Mike <mike@email.com>"
+    sqlFile: "create_stocks_table.sql"
+  - changeSet: 2
+    author: "Matt <matt@email.com>"
+    sqlFile: "insert_data.sql"

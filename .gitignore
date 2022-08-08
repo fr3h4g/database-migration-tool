@@ -5,6 +5,7 @@ junit/
 test.xml
 PrintOrder*.*
 .DS_Store
+*.db
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
