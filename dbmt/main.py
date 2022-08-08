@@ -236,9 +236,7 @@ def get_scripts_data():
     return script_data
 
 
-def merge_migration_data(
-    schema_history_table_data: list[MigrationData], scripts_data: list[MigrationData]
-):
+def merge_migration_data(schema_history_table_data, scripts_data):
     merge_data = {}
     for row in scripts_data:
         if row.id not in merge_data:
