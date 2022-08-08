@@ -13,8 +13,6 @@ class MySQLPlugin(database_plugin.Plugin):
     def __init__(self):
         self.__name__ = "mysql"
         self._check_config()
-        # self._connect()
-        # self._add_schema_history_table()
 
     def _check_config(self):
         if not CONFIG["database"]:
@@ -29,7 +27,6 @@ class MySQLPlugin(database_plugin.Plugin):
             raise ValueError("database.database is missing in config.")
 
     def connect(self):
-        print("connect")
         cnx = mysql.connector.connect(
             user=CONFIG["database"]["username"],
             password=CONFIG["database"]["password"],
@@ -38,7 +35,6 @@ class MySQLPlugin(database_plugin.Plugin):
         )
         self._cnx = cnx
         self._cursor = cnx.cursor()
-        self._add_schema_history_table()
 
     def execute(self, sql):
         self._cursor.execute(sql)
@@ -75,7 +71,7 @@ class MySQLPlugin(database_plugin.Plugin):
             list_data = []
             return list_data
 
-    def _add_schema_history_table(self):
+    def add_schema_history_table(self):
         """runns before every script file"""
 
         sql = (
@@ -102,13 +98,28 @@ class MySQLPlugin(database_plugin.Plugin):
             data.append(MigrationData(**row))
         return data
 
-    def add_schema_history_table_entry(self):
+    def add_schema_history_table_entry(self, data: MigrationData):
         """runns on every script script file"""
-        pass
+        sql = f"SELECT id FROM `dbmt_schema_history` WHERE id='{data.id}' LIMIT 1"
+        self.execute(sql)
+        tmp = self._fetchone()
+        if not tmp:
+            sql = (
+                "INSERT INTO `dbmt_schema_history` (id, script, total_queries, done_queries, "
+                "description, checksum, success) "
+                f"VALUES ('{data.id}','{data.script}','{data.total_queries}','{data.done_queries}',"
+                f"'','{data.checksum}','0')"
+            )
+            self.execute(sql)
 
-    def update_schema_history_table_entry(self):
+    def update_schema_history_table_entry(self, data: MigrationData, index_done: int):
         """runns after every sql query in script file"""
-        pass
+        success = "1" if index_done + 1 == data.total_queries else "0"
+        sql = (
+            f"UPDATE `dbmt_schema_history` SET done_queries='{index_done+1}', success='{success}' "
+            f"WHERE id='{data.id}'"
+        )
+        self.execute(sql)
 
     def add_database_lock(self):
         pass
@@ -117,4 +128,13 @@ class MySQLPlugin(database_plugin.Plugin):
         pass
 
     def clean_all_tables(self):
-        pass
+        sql = (
+            "SELECT CONCAT('DROP TABLE IF EXISTS `', table_name, '`;') query "
+            "FROM information_schema.tables "
+            f"WHERE table_schema = '{CONFIG['database']['database']}';"
+        )
+        self.execute(sql)
+        data = self._fetchall()
+        for row in data:
+            self.execute(row["query"])
+        self.commit()
