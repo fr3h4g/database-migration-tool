@@ -11,8 +11,9 @@ required = [
     "pyyaml",
     "python-dotenv",
     "pyfiglet",
-    "mysql-connector-python",
     "sqlparse",
+    "mysql-connector-python",
+    "sqlite3",
 ]
 
 setuptools.setup(
