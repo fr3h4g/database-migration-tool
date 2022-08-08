@@ -1,3 +1,4 @@
+import datetime
 import sqlite3
 from typing import Any, Dict, List
 
@@ -66,7 +67,7 @@ class SQLitePlugin(database_plugin.Plugin):
             "`description` VARCHAR(255) NOT NULL , "
             "`script` VARCHAR(255) NOT NULL , "
             "`checksum` VARCHAR(64) NOT NULL , "
-            "`installed_on` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP , "
+            "`installed_on` TEXT NOT NULL , "
             "`total_queries` INT NOT NULL, "
             "`done_queries` INT NOT NULL, "
             "`success` INT NOT NULL "
@@ -91,9 +92,9 @@ class SQLitePlugin(database_plugin.Plugin):
         if not tmp:
             sql = (
                 "INSERT INTO `dbmt_schema_history` (id, script, total_queries, done_queries, "
-                "description, checksum, success) "
+                "description, checksum, success, installed_on) "
                 f"VALUES ('{data.id}','{data.script}','{data.total_queries}','{data.done_queries}',"
-                f"'','{data.checksum}','0')"
+                f"'','{data.checksum}','0','')"
             )
             self.execute(sql)
 
@@ -101,7 +102,8 @@ class SQLitePlugin(database_plugin.Plugin):
         """runns after every sql query in script file"""
         success = "1" if index_done + 1 == data.total_queries else "0"
         sql = (
-            f"UPDATE `dbmt_schema_history` SET done_queries='{index_done+1}', success='{success}' "
+            f"UPDATE `dbmt_schema_history` SET done_queries='{index_done+1}', success='{success}', "
+            f"installed_on='{datetime.datetime.now()}' "
             f"WHERE id='{data.id}'"
         )
         self.execute(sql)

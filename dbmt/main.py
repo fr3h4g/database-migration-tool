@@ -109,45 +109,38 @@ def get_version_info(version, schema_history_data):
 
 
 def database_info():
-    cnx = connect_to_db()
-    sql = f"SELECT * FROM dbmt_schema_history ORDER BY id"
-    cursor = mysql_execute(cnx, sql)
-    schema_history_data = mysql_cursor_fetchall(cursor)
-    files = get_files()
+    database = DatabasePlugin(CONFIG["database"]["database_plugin"])
+    database.connect()
+    migration_info_data = get_migration_info_data(database)
     table_data = []
-    for row in files:
-        version = row["version"]
-        description = row["description"]
-        version_info = get_version_info(version, schema_history_data)
-        category = "Repeatable" if row["filename"][0] == "R" else "Versioned"
-        if version_info:
-            installed_on = str(version_info["installed_on"])
-            state = "Success" if version_info["success"] else "Error"
-            if (
-                hashlib.sha256(
-                    open(os.path.join("sql", row["filename"]), "rb").read()
-                ).hexdigest()
-                != version_info["checksum"]
-            ):
-                state = "Changed/Error"
-        else:
-            installed_on = ""
-            state = "Pending"
+    for index in migration_info_data:
+        row = migration_info_data[index]
+        id = str(row.id)
+        description = str(row.description)
+        script = str(row.script)
+        total = str(row.total_queries)
+        done = str(row.done_queries)
+        installed_on = str(row.installed_on)
+        state = str(row.success)
         table_data.append(
             (
-                category,
-                version,
+                id,
                 description,
                 "SQL",
+                script,
+                total,
+                done,
                 installed_on,
                 state,
             )
         )
     table = Table(box=box.ASCII2)
-    table.add_column("Category")
-    table.add_column("Version")
+    table.add_column("Id")
     table.add_column("Description")
     table.add_column("Type")
+    table.add_column("Script")
+    table.add_column("Total queries")
+    table.add_column("Done queries")
     table.add_column("Installed on")
     table.add_column("State")
     for row in table_data:
@@ -167,7 +160,7 @@ def database_info():
 @click.option(
     "--dry-run/--no-dry-run",
     default=False,
-    help="Dry run, wont execute any sql writes.",
+    help="Dry run on prints sql queries, wont execute any, default --no-dry-run",
 )
 @click.option(
     "-d",
@@ -249,6 +242,7 @@ def merge_migration_data(schema_history_table_data, scripts_data):
                 print("error")
             merge_data[row.id].done_queries = row.done_queries
             merge_data[row.id].success = row.success
+            merge_data[row.id].installed_on = row.installed_on
 
     return merge_data
 
@@ -258,10 +252,8 @@ def migrate_database():
     database.connect()
 
     database.add_schema_history_table()
-    schema_history_table_data = database.get_schema_history_table_data()
 
-    scripts_data = get_scripts_data()
-    migration_info_data = merge_migration_data(schema_history_table_data, scripts_data)
+    migration_info_data = get_migration_info_data(database)
 
     for key in migration_info_data:
         data = migration_info_data[key]
@@ -278,6 +270,8 @@ def migrate_database():
     database.close()
 
 
-@start.command(help="test")
-def test():
-    migrate_database()
+def get_migration_info_data(database):
+    schema_history_table_data = database.get_schema_history_table_data()
+    scripts_data = get_scripts_data()
+    migration_info_data = merge_migration_data(schema_history_table_data, scripts_data)
+    return migration_info_data
