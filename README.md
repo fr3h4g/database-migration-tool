@@ -1,21 +1,21 @@
-database-migration-tool will help to track, version, and deploy database schema changes to a database.
-
 # database-migration-tool
 
-## database support
+Database migration made simple.
+
+## Database support
 
 - MySQL
 - SQLite
 
-## functions
+## Functions
 
-### validations
+### Validations
 
 - Only run sql querys that has not been run before
 - Checks that all checksum are same on installed and on the scripts
 - New versions can't be inserted between two installed scripts
 
-## command line
+## Command line
 
 ```
 <command> --changelog-file=config.yaml migrate
@@ -29,7 +29,7 @@ commands:
 | info    |             |
 | migrate |             |
 
-## changelog file
+## Changelog file
 
 yaml file with changelog settings for the database migrations
 
@@ -92,7 +92,7 @@ CREATE TABLE email (
 );
 ```
 
-## tables
+## Tables
 
 ### database-change-log
 
