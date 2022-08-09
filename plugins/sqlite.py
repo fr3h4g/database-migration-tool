@@ -77,6 +77,7 @@ class SQLitePlugin(database_plugin.Plugin):
         self._cnx.commit()
 
     def get_schema_history_table_data(self):
+        self.add_schema_history_table()
         sql = "SELECT * FROM `dbmt_schema_history` ORDER BY id ASC;"
         self.execute(sql)
         data = []
