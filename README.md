@@ -96,7 +96,7 @@ CREATE TABLE email (
 
 ### database-change-log
 
-Table for tracking done changes to the database
+Table for tracking changes to the database
 
 | Column       | Data type    | Description                               |
 | ------------ | ------------ | ----------------------------------------- |
