@@ -52,5 +52,7 @@ jobs:
         
     - name: Run mysql clean/migrate command line
       run: |
+        dbmt -d sql-tests/mysql info
         dbmt -d sql-tests/mysql clean
         dbmt -d sql-tests/mysql migrate
+        dbmt -d sql-tests/mysql info
