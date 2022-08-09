@@ -35,7 +35,7 @@ jobs:
     
     - name: Run sqlite clean/migrate command line
       run: |
-        dbmt -d sql-tests/mysql info
-        dbmt -d sql-tests/mysql clean
-        dbmt -d sql-tests/mysql migrate
-        dbmt -d sql-tests/mysql info
+        dbmt -d sql-tests/sqlite info
+        dbmt -d sql-tests/sqlite clean
+        dbmt -d sql-tests/sqlite migrate
+        dbmt -d sql-tests/sqlite info
