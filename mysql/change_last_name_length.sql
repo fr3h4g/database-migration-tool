@@ -1,1 +1,0 @@
-ALTER TABLE `users` CHANGE `last_name` `last_name` VARCHAR(100) NOT NULL;

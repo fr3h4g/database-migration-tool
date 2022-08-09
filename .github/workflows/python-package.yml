@@ -43,5 +43,5 @@ jobs:
         pip install -e .
     - name: Run sqlite migrate command line
       run: |
-        dbmt -d sqlite clean
-        dbmt -d sqlite migrate
+        dbmt -d sql-tests/sqlite clean
+        dbmt -d sql-tests/sqlite migrate
