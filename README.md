@@ -50,18 +50,18 @@ databaseMigrations:
   - changeSet: 1
     author: Mike <mike@email.com>
     changes:
-      - sqlFile: baseline.sql
+    sqlFile: baseline.sql
   - changeSet: 2
     author: Matt <matt@email.com>
     changes:
-      - sqlFile: test.sql
+    sqlFile: test.sql
     parameters:
       - userName: test
       - email: test@email.com
   - changeSet: 3
     author: Matt <matt@email.com>
     changes:
-      - scriptFile: test.py
+    scriptFile: test.py
 
 parameters:
   - tableName: users
@@ -101,7 +101,6 @@ Table for tracking done changes to the database
 | Column       | Data type    | Description                               |
 | ------------ | ------------ | ----------------------------------------- |
 | id           | INT          | ID                                        |
-| version      | INT          | version from the script                   |
 | description  | VARCHAR(255) | description from the script               |
 | script       | VARCHAR(255) | filename of the script                    |
 | checksum     | VARCHAR(64)  | SHA256 checksum of the script file        |
