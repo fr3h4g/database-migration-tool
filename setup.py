@@ -17,7 +17,7 @@ required = [
 
 setuptools.setup(
     name="db-migration-tool",
-    version="0.1.0",
+    version="0.1.1",
     author="Fredrik Haglund",
     author_email="fr3h4g@gmail.com",
     description="A command line utility",
